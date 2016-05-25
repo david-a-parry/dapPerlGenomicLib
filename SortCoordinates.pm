@@ -146,7 +146,7 @@ sub _sortRegion{
     _sortArray
     (
         array     => $array,
-        delimiter => '[:-]',
+        delimiter => '[:\-\t]',
         seq       => 0,
         start     => 1,
         end       => 2,
@@ -282,7 +282,7 @@ sub _mergeRegion{
     _mergeArray
     (
         array     => $array,
-        delimiter => '[:-]',
+        delimiter => '[:\-\t]',
         seq       => 0,
         start     => 1,
         end       => 2,
@@ -312,7 +312,7 @@ sub _mergeArray{
                 if ($split[$args{end}] > $prev_region{end}){
                     $prev_region{end} = $split[$args{end}];
                 }
-                $prev_region{extra} .= "," . join(",", @split);
+                $prev_region{extra} .= "," . join("|", @split[$args{end}+1..$#split]);
             }else{#not overlapping
                 push @merged, _getRegion(\%prev_region, %args);
                 %prev_region = _convertRegionToHash(\@split, %args);
@@ -326,7 +326,7 @@ sub _mergeArray{
 sub _getRegion{
     my ($reg, %args) = @_;
     my $line = '';
-    if ($args{delimiter} eq '[:-]'){
+    if ($args{delimiter} eq '[:\-\t]'){
         $line = "$reg->{seq}:$reg->{start}-$reg->{end}";
     }else{
         $line = join("\t", map { $reg->{$_} } qw/ seq start end /);
@@ -343,7 +343,7 @@ sub _convertRegionToHash{
     foreach my $k (qw /seq start end /){
         $region{$k} = $split->[$args{$k}];
     }
-    $region{extra} = join("|", @$split);
+    $region{extra} = join("|", @$split[$args{end}+1..$#{$split}]);
     return %region;
 }
 
