@@ -103,11 +103,11 @@ sub sortByCoordinate{
     }
 
     if (not $args{format} or uc($args{format}) eq 'BED'){
-        _sortBed( $args{array}, \%contig_order) ;
+        return _sortBed( $args{array}, \%contig_order) ;
     }elsif(uc($args{format}) eq 'VCF'){
-        _sortVcf( $args{array}, \%contig_order) ;
+        return _sortVcf( $args{array}, \%contig_order) ;
     }elsif(uc($args{format}) eq 'REGION'){
-        _sortRegion( $args{array}, \%contig_order) ;
+        return _sortRegion( $args{array}, \%contig_order) ;
     }else{
         croak "unrecognised format ('$args{format}') ";
     }
@@ -116,7 +116,7 @@ sub sortByCoordinate{
 sub _sortBed{
     my $array = shift;
     my $contigs = shift;
-    _sortArray
+    return _sortArray
     (
         array     => $array,
         delimiter => "\t",
@@ -130,7 +130,7 @@ sub _sortBed{
 sub _sortVcf{
     my $array = shift;
     my $contigs = shift;
-    _sortArray
+    return _sortArray
     (
         array     => $array,
         delimiter => "\t",
@@ -143,7 +143,7 @@ sub _sortVcf{
 sub _sortRegion{
     my $array = shift;
     my $contigs = shift;
-    _sortArray
+    return _sortArray
     (
         array     => $array,
         delimiter => '[:\-\t]',
@@ -255,9 +255,9 @@ sub mergeByCoordinate{
         croak "array argument is required!\n";
     }
     if (not $args{format} or uc($args{format}) eq 'BED'){
-        _mergeBed( $args{array}, $args{keep_info} ) ;
+        return _mergeBed( $args{array}, $args{keep_info} ) ;
     }elsif(uc($args{format}) eq 'REGION'){
-        _mergeRegion( $args{array}, $args{keep_info} ) ;
+        return _mergeRegion( $args{array}, $args{keep_info} ) ;
     }else{
         croak "unrecognised format ('$args{format}') ";
     }
@@ -266,7 +266,7 @@ sub mergeByCoordinate{
 sub _mergeBed{
     my $array = shift;
     my $keep_info = shift;
-    _mergeArray
+    return _mergeArray
     (
         array     => $array,
         delimiter => "\t",
@@ -279,7 +279,7 @@ sub _mergeBed{
 sub _mergeRegion{
     my $array = shift;
     my $keep_info = shift;
-    _mergeArray
+    return _mergeArray
     (
         array     => $array,
         delimiter => '[:\-\t]',
