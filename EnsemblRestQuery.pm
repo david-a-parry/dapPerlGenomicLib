@@ -6,6 +6,10 @@ use Carp;
 use HTTP::Tiny;
 use JSON;
 use Time::HiRes;
+use FindBin qw($RealBin);
+use lib "$RealBin";
+use IdParser;
+
 our $AUTOLOAD;
 
 ##################################################
@@ -192,17 +196,27 @@ sub getParent{
 ##################################################
 
 sub transcriptFromEnsp{
-    my ($self, $id) = @_;
-    $self->getParent($id);
+    my ($self, $id, $expand) = @_;
+    $self->getParent($id, $expand);
 }
 
 ##################################################
 
 sub geneFromTranscript{
-    my ($self, $id) = @_;
-    $self->getParent($id);
+    my ($self, $id, $expand) = @_;
+    $self->getParent($id, $expand);
 }
 
+##################################################
+sub geneFromEnsp{
+    my ($self, $id, $expand) = @_;
+    my $par = $self->getParent($id);
+    if ($par){
+        if (exists $par->{id}){
+            return $self->geneFromTranscript($par->{id}, $expand);
+        }
+    }
+}
 ##################################################
 
 sub getXrefs{
@@ -251,4 +265,136 @@ sub useGRCh37Server{
 sub useDefaultServer{
     my $self = shift;
     $self->{_server} = $self->{_default_server};
+}
+
+##################################################
+sub getGeneDetails{
+    my ($self, $id, $species) = @_;
+    my $gene_hash; 
+    my $id_parser = new IdParser();
+    $id_parser->parseId($id);
+    my @lookups = ();
+    if ($id_parser->get_isEnsemblId()){
+        if ( $id_parser->get_isTranscript() ){
+            $gene_hash = $self->geneFromTranscript($id, 1);
+        }elsif( $id_parser->get_isProtein() ) {
+            $gene_hash = $self->geneFromEnsp($id, 1);
+        }else{
+            $gene_hash = $self->lookUpEnsId($id, 1);
+        }
+    }elsif($id_parser->get_isTranscript()  or $id_parser->get_isProtein() ) {
+        my $transcript = $self->getTranscriptViaXreg($id, $species);
+        if ($transcript and ref $transcript eq 'ARRAY'){
+            if (@$transcript > 1){
+                carp "WARNING: Multiple transcripts identified by ".
+                  "cross-reference search for $id - picking the first.\n";
+            }
+            my $tr = $transcript->[0];
+            if (exists $tr->{id}){
+                $gene_hash = geneFromEnst($tr->{id});
+            }
+        }else{
+            carp "WARNING: No transcript identified for ID \"$id\"\n";
+        }
+    }else{
+        my $gene = $self->getGeneViaXreg($id, $species);
+        if (ref $gene eq 'ARRAY'){
+            foreach my $ge (@$gene){
+                if ($ge->{id}){
+                    my $ge_hash = $self->lookUpEnsId($ge->{id}, 1);
+                    if (uc($ge_hash->{display_name}) eq uc($id)){
+                    #if gene symbol matches then we use this entry
+                        $gene_hash = $ge_hash;
+                        last;
+                    }else{
+                        push @lookups, $ge_hash;
+                    }
+                }
+            }
+            if (not $gene_hash){
+                if (@lookups == 1){
+                    $gene_hash = $lookups[0];
+                }
+            }
+        }
+    }
+    if (not $gene_hash){
+        my $msg = "WARNING: Could not identify gene for ID \"$id\"\n";
+        if (@lookups){
+            my $idstring = join("\n", map { $_->{display_name} } @lookups );
+            $msg .= "Identified the following non-matching display names:\n".
+                         "$idstring\n";
+        }
+        carp $msg;
+    }
+    return $gene_hash;
+}
+
+##################################################
+sub getTranscriptDetails{
+    my ($self, $id, $species) = @_;
+    my @trans_hash = ();
+    my @lookups = ();
+    my $id_parser = new IdParser();
+    $id_parser->parseId($id);
+    if ($id_parser->get_isEnsemblId()){
+        if ( $id_parser->get_isTranscript() ){
+            push @trans_hash, $self->lookUpEnsId($id, 1);
+        }elsif( $id_parser->get_isProtein() ) {
+            push @trans_hash, $self->transcriptFromEnsp($id, 1);
+        }else{
+            my $ge_hash = $self->lookUpEnsId($id, 1);
+            @trans_hash = _transcriptsFromGeneHash($ge_hash);
+        }
+    }elsif($id_parser->get_isTranscript()  or $id_parser->get_isProtein() ) {
+        my $transcript = $self->getTranscriptViaXreg($id, $species);
+        if ($transcript and ref $transcript eq 'ARRAY'){
+            if (@$transcript > 1){
+                carp "WARNING: Multiple transcripts identified by ".
+                  "cross-reference search for $id.\n";
+            }
+            @trans_hash = @$transcript;
+        }else{
+            carp "WARNING: No transcript identified for ID \"$id\"\n";
+        }
+    }else{
+        my $gene = $self->getGeneViaXreg($id, $species);
+        if (ref $gene eq 'ARRAY'){
+            foreach my $ge (@$gene){
+                if ($ge->{id}){
+                    my $ge_hash = $self->lookUpEnsId($ge->{id}, 1);
+                    if (uc($ge_hash->{display_name}) eq uc($id)){
+                    #if gene symbol matches then we use this entry
+                        @trans_hash = _transcriptsFromGeneHash($ge_hash);
+                        last;
+                    }else{
+                        push @lookups, $ge_hash;
+                    }
+                }
+            }
+            if (not @trans_hash){
+                if (@lookups == 1){
+                    @trans_hash = _transcriptsFromGeneHash($lookups[0]);
+                }
+            }
+        }
+    }
+    if (not @trans_hash){
+        my $msg = "WARNING: Could not identify any transcripts for ID \"$id\"\n";
+        if (@lookups){
+            my $idstring = join("\n", map { $_->{display_name} } @lookups );
+            $msg .=  "Identified the following non-matching display names:\n".
+                         "$idstring\n";
+        }
+        carp $msg;
+    }
+    return @trans_hash;
+}
+
+##################################################
+sub _transcriptsFromGeneHash{
+    my $h = shift;
+    if ($h->{Transcript}){
+        return @{$h->{Transcript}};
+    }
 }
