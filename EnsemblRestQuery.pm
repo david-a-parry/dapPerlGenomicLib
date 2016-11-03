@@ -10,6 +10,7 @@ use FindBin qw($RealBin);
 use lib "$RealBin";
 use IdParser;
 
+our $VERSION = 0.1;
 our $AUTOLOAD;
 
 ##################################################
