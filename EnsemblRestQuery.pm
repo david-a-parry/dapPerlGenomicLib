@@ -292,7 +292,7 @@ sub getGeneDetails{
             }
             my $tr = $transcript->[0];
             if (exists $tr->{id}){
-                $gene_hash = geneFromEnst($tr->{id});
+                $gene_hash = $self->geneFromTranscript($tr->{id});
             }
         }else{
             carp "WARNING: No transcript identified for ID \"$id\"\n";
