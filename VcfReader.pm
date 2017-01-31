@@ -3261,7 +3261,7 @@ sub searchByRegionCompressed{
         }
         $tabixIterator = Bio::DB::HTS::Tabix->new(filename =>  $args{vcf}) ;
     }
-    my $iter = $tabixIterator->query("$args{chrom}:$args{start}-" . ($args{end} + 1) );
+    my $iter = $tabixIterator->query("$args{chrom}:$args{start}-$args{end}");
     my @matches = ();
     while (my $m =  $iter->next() ){ 
         push @matches, $m;
@@ -3545,7 +3545,7 @@ sub searchForPositionCompressed{
         }
         $tabixIterator = Bio::DB::HTS::Tabix->new(filename =>  $args{vcf}) ;
     }
-    my $iter = $tabixIterator->query("$args{chrom}:$args{pos}-" .  ($args{pos} + 1) );
+    my $iter = $tabixIterator->query("$args{chrom}:$args{pos}-$args{pos}");
     my @matches = ();
     while (my $m =  $iter->next()){
         push @matches, $m;
