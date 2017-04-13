@@ -141,6 +141,44 @@ use constant VCF_FIELDS =>
 
 #index every 0-99999 bp of a chrom
 my $REGION_SPANS = 100000;
+my $getUncompressFilehandle;#sub defined depending on available tools/modules
+BEGIN{
+    #define our subroutine for handling bgzip compressed VCFs
+    #note, that PerlIO::gzip does not handle block compressed data, 
+    #stopping at the end of the first block, so our methods in order of speed
+    # are: 
+    #         native gzip > Compress::BGZF::Reader > IO::Uncompress::Gunzip
+    #
+    my $gzip = `which gzip`;
+    chomp $gzip;
+    if ($gzip and -x $gzip){
+    #fastest decomp method uses native gunzip
+        $getUncompressFilehandle = sub {
+            my $f = shift;
+            open (my $FH, "gzip -dc $f |") or croak "Error opening $f via gzip: $! ";
+            return $FH;
+        }
+    }elsif(eval "use Compress::BGZF::Reader; 1" ){
+    # Compress::BGZF::Reader is actually faster than IO::Uncompress::Gunzip
+    # in multistream mode
+        $getUncompressFilehandle = sub {
+            my $f = shift;
+            my $FH = Compress::BGZF::Reader->new_filehandle( $f )  or 
+                croak "Compress::BGZF::Reader failed while opening $f for ".
+                "reading:\n$!";
+            return $FH;
+        };
+    }else{
+    # IO::Uncompress::Gunzip should be in core perl
+        $getUncompressFilehandle = sub {
+            my $f = shift;
+            my $FH = new IO::Uncompress::Gunzip $f, MultiStream => 1 or 
+              croak "IO::Uncompress::Gunzip failed while opening $f for ".
+              "reading:\n$GunzipError";
+            return $FH;
+        };
+    }
+}
 
 =head1 FUNCTIONS
 
@@ -947,9 +985,12 @@ sub getFileLengthFromIndex{
 
 =item B<openVcf>
 
-Convenience method to return a filehandle for reading a VCF. Requires a filename or filehandle as the only input. If the filename ends in '.bgz' or '.gz' it will be opened via IO::Uncompress::Gunzip.
+Convenience method to return a filehandle for reading a VCF. Requires a filename or filehandle as the only input. 
 
- my $FH = VcfReader::openVcf('file.vcf');
+If the filename ends in '.bgz' or '.gz' it will choose the fastest available method to read the file in the order of: piping from gzip (fastest), using Compress::BGZF::Reader (marginally faster than IO::Uncompress::Gunzip) or finally, using IO::Uncompress::Gunzip in MultiStream mode (slowest).
+
+ my $FH1 = VcfReader::openVcf('file1.vcf');
+ my $FH2 = VcfReader::openVcf('file2.vcf.gz');
 
 =cut
 
@@ -967,7 +1008,7 @@ sub _openFileHandle{
         return $vcf;#already an open filehandle
     }
     if ($vcf =~ /\.(b){0,1}gz$/){
-        $FH = new IO::Uncompress::Gunzip $vcf, MultiStream => 1 or croak "IO::Uncompress::Gunzip failed while opening $vcf for reading: \n$GunzipError";
+        $FH = $getUncompressFilehandle->($vcf);
     }else{
         open ($FH, $vcf) or croak "Failed to open $vcf for reading: $! ";
     }
