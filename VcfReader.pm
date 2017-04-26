@@ -2743,8 +2743,8 @@ sub sortVcf{
             my $s_chrom; 
             if (%contigs){
                 if (not exists $contigs{$chrom}){
-                    carp "Contig '$chrom' is not present in user provided ".
-                         "contig order ";
+                    carp "WARNING: Contig '$chrom' is not present in user ".
+                         "provided contig order ";
                     #put unexpected contigs to end of VCF
                     $contigs{$chrom} = scalar keys %contigs;
                 }
@@ -2822,8 +2822,8 @@ sub sortVcf{
             my $s_chrom; 
             if (%contigs){
                 if (not exists $contigs{$chrom}){
-                    carp "Contig '$chrom' is not present in user provided ".
-                         "contig order ";
+                    carp "WARNING: Contig '$chrom' is not present in user ".
+                         "provided contig order\n";
                     #put unexpected contigs to end of VCF
                     $contigs{$chrom} = scalar keys %contigs; 
                 }
@@ -2839,7 +2839,7 @@ sub sortVcf{
             if (@feeds > 49999){
                 $sortex->feed(@feeds);
                 @feeds = ();
-                print STDERR "Fed $n variants to sort...\n";
+                print STDERR "\rFed $n variants to sort...";
             }
         }
         close $FH;
@@ -2847,7 +2847,7 @@ sub sortVcf{
             @dict = map {"##contig=<ID=$_>"} sort byContigs keys %temp_dict ;
         }
         $sortex->feed(@feeds) if @feeds;
-        print STDERR "Fed $n variants to sort...\n";
+        print STDERR "\nFed $n variants to sort...\n";
         my $total = $n;
         print STDERR "Finishing sort and writing output...\n";
         $sortex->finish; 
@@ -2865,15 +2865,15 @@ sub sortVcf{
             print $SORTOUT $var if $var ne $previous;
             $var = $previous;
             $n++;
-            if (not $n % 50000){
-                print STDERR "Printed $n variants to output...\n";
+            if (not $n % 5000){
+                print STDERR "\rPrinted $n variants to output...";
             }
         }
     }
     if (exists $args{output}){
         close $SORTOUT or croak "Couldn't finish writing to sort output file $args{output}: $!\n" ;
     }
-    print STDERR "Done.\n";
+    print STDERR "\nDone.\n";
     return $args{output} if defined wantarray
 }
 
