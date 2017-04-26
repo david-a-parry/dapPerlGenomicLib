@@ -2742,8 +2742,12 @@ sub sortVcf{
             my $pos = $split[VCF_FIELDS->{POS}];
             my $s_chrom; 
             if (%contigs){
-                croak "Contig '$chrom' is not present in user provided ".
-                    "contig order " if not exists $contigs{$chrom};
+                if (not exists $contigs{$chrom}){
+                    carp "Contig '$chrom' is not present in user provided ".
+                         "contig order ";
+                    #put unexpected contigs to end of VCF
+                    $contigs{$chrom} = scalar keys %contigs;
+                }
                 $s_chrom = pack("N", $contigs{$chrom}); 
             }else{
                 $s_chrom = sprintf("%-25s", $chrom); 
@@ -2817,8 +2821,12 @@ sub sortVcf{
             my $pos = $split[VCF_FIELDS->{POS}];
             my $s_chrom; 
             if (%contigs){
-                croak "Contig '$chrom' is not present in user provided ".
-                    "contig order " if not exists $contigs{$chrom};
+                if (not exists $contigs{$chrom}){
+                    carp "Contig '$chrom' is not present in user provided ".
+                         "contig order ";
+                    #put unexpected contigs to end of VCF
+                    $contigs{$chrom} = scalar keys %contigs; 
+                }
                 $s_chrom = pack("N", $contigs{$chrom}); 
             }else{
                 $s_chrom = sprintf("%-25s", $chrom); 
