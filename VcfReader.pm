@@ -867,7 +867,7 @@ sub indexVcf{
             $contigs{first_line} = $n;
             $contigs{first_offset} = $prev_offset;
         }
-        my @s = split ("\t", $line);
+        my @s = split ("\t", $line, 9);
         my $chrom = $s[VCF_FIELDS->{CHROM}];
         my $pos = $s[VCF_FIELDS->{POS}];
         my $span = getSpan(\@s);
