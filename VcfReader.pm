@@ -604,19 +604,44 @@ sub getFormatFields{
 
 =item B<getContigOrder>
 
-Returns a hash of contig IDs to their relative order in the VCF (i.e. the first contig ID will have a value of 0, the next a value of 1 and so on). Requires a vcf file as an argument. 
+Returns a hash of contig IDs to their relative order in the VCF (i.e. the first contig ID will have a value of 0, the next a value of 1 and so on). 
 
 This function will first attempt to read the contig IDs from a VCF header and failing that it will attempt to read the contig IDs from a VCF file's index. If the index does not exist it will try to create one either using tabix (if input is bgzip compressed) or using VcfReader's own indexing method (if the input is not compressed).
 
- my %contigs = VcfReader::getContigOrder("file.vcf");
+Arguments
+
+=over 16
+
+=item vcf
+
+File name of VCF file. This argument or 'header' argument is required.
+
+=item header
+
+Header string or an array of header lines in the same order they appear in a file. Ignored if using 'vcf' argument.
+
+=back 
+
+
+ my %contigs = VcfReader::getContigOrder(file => "file.vcf");
 
 =cut
 sub getContigOrder{
-    my ($vcf) = shift;
-    croak "getContigOrder method requires a file as an argument" if not $vcf;
+    my %args = @_;
+    croak "getContigOrder method requires file or header argument" 
+        if not $args{vcf} and not $args{header};
     my %contigs = ();
-    my @meta = getMetaHeader($vcf);
-    my @con = grep {/##contig=</} @meta;
+    my @header  = ();
+    if ($args{vcf}){
+        @header = getMetaHeader($args{vcf});
+    }elsif($args{header}){
+        if (ref $args{header} eq 'ARRAY'){
+            @header = @{$args{header}};
+        }else{
+            @header = split("\n", $args{header});
+        }
+    }
+    my @con = grep {/##contig=</} @header;
     if (@con){
         my $n = 0;
         foreach my $c (@con){
@@ -628,22 +653,26 @@ sub getContigOrder{
         }
         return %contigs if %contigs;
     }
+    if (not $args{vcf}){
+        carp "Failed to retrieve could not retrieve contigs from header.\n";
+        return;
+    }
     print STDERR "Failed to retrieve contigs from header - reading/creating index.\n";
-    if ($vcf =~ /\.(b){0,1}gz$/){
+    if ($args{vcf} =~ /\.(b){0,1}gz$/){
         eval "use Bio::DB::HTS::Tabix; 1" 
-            or croak "Bio::DB::HTS::Tabix module is not installed and VCF file $vcf appears to be (b)gzip compressed.  ".
+            or croak "Bio::DB::HTS::Tabix module is not installed and VCF file $args{vcf} appears to be (b)gzip compressed.  ".
             "  Please install Bio::DB::HTS::Tabix in order to quickly extract contigs from bgzip compressed VCFs.\n";
-        my $index = "$vcf.tbi";
+        my $index = "$args{vcf}.tbi";
         if (not -e $index){
-            print STDERR "Indexing $vcf with tabix...\n";
-            indexVcf($vcf);
+            print STDERR "Indexing $args{vcf} with tabix...\n";
+            indexVcf($args{vcf});
             croak "Tabix indexing failed? $index does not exist " if (not -e $index);
         }
-        my $t = getTabixIterator($vcf);
+        my $t = getTabixIterator($args{vcf});
         my $n = 0;
         %contigs = map {$_ => $n++} @{$t->seqnames()};
     }else{
-        my %idx = readIndex($vcf);
+        my %idx = readIndex($args{vcf});
         foreach my $k (keys %idx){
             if (ref $idx{$k} eq 'HASH' && exists $idx{$k}->{order}){
                 $contigs{$k} = $idx{$k}->{order};
@@ -656,16 +685,40 @@ sub getContigOrder{
 
 Returns a hash of contig IDs to their relative order in the VCF (i.e. the first contig ID will have a value of 0, the next a value of 1 and so on) by reading the header. If contigs can't be found in the header it returns nothing. This can be used instead of "getContigOrder" where the VCF may be unsorted and you do not want to die because it cannot be indexed. Requires a vcf file as an argument. 
 
- my %contigs = VcfReader::getContigOrderFromHeader("file.vcf");
+ my %contigs = VcfReader::getContigOrderFromHeader(vcf => "file.vcf");
+
+=over 16
+
+=item vcf
+
+File name of VCF file. This argument or 'header' argument is required.
+
+=item header
+
+Header string or an array of header lines in the same order they appear in a file. Ignored if using 'vcf' argument.
+
+=back 
+
+ my %contigs = VcfReader::getContigOrder(file => "file.vcf");
 
 =cut
 
 sub getContigOrderFromHeader{
-    my ($vcf) = shift;
-    croak "getContigOrderFromHeader method requires a file as an argument" if not $vcf;
+    my %args = @_;
+    croak "getContigOrder method requires file or header argument" 
+        if not $args{vcf} and not $args{header};
     my %contigs = ();
-    my @meta = getMetaHeader($vcf);
-    my @con = grep {/##contig=</} @meta;
+    my @header  = ();
+    if ($args{vcf}){
+        @header = getMetaHeader($args{vcf});
+    }elsif($args{header}){
+        if (ref $args{header} eq 'ARRAY'){
+            @header = @{$args{header}};
+        }else{
+            @header = split("\n", $args{header});
+        }
+    }
+    my @con = grep {/##contig=</} @header;
     if (@con){
         my $n = 0;
         foreach my $c (@con){
@@ -2697,8 +2750,10 @@ sub sortVcf{
     my @dict = ();
     my $add_ids = 0;
     my $i = 0;
+    my ($head, $first, $FH) = VcfReader::getHeaderAndFirstVariant($args{vcf});
+    #let's us work on a stream
     if (not $args{contig_order}){
-        %contigs = getContigOrderFromHeader($args{vcf});
+        %contigs = getContigOrderFromHeader(header => $head);
         $do_not_replace_header++ if %contigs;
     }else{
         if (ref $args{contig_order} ne 'HASH'){
@@ -2717,8 +2772,7 @@ sub sortVcf{
         }
     }
 
-    my @head = getMetaHeader($args{vcf});
-    my $column_header = VcfReader::getColumnHeader($args{vcf});
+    my $column_header = $head->[-1];
     my $SORTOUT;
     if (exists $args{output}){
         if (openhandle($args{output})){
@@ -2733,36 +2787,25 @@ sub sortVcf{
     eval "use Sort::External; 1" or carp "The Sort::External module was not found - will attempt to sort in memory. For huge files it is recommended to install Sort::External via CPAN.\n";
     if ($@){#no Sort::External , sort in memory
         print STDERR "Reading variants into memory...\n";
-        my $FH = _openFileHandle($args{vcf});
         my @sort = ();
-        while (my $line = <$FH>){
+        my ($l, $c) = _lineToVcfSort($first, \%contigs);
+        push @sort, $l;
+        if (not @dict){
+            $temp_dict{$c} = undef;
+        }
+        while (my $line =  <$FH>){
             next if $line =~ /^#/;
-            my @split = split("\t", $line, 3);
-            my $chrom = $split[VCF_FIELDS->{CHROM}];
-            my $pos = $split[VCF_FIELDS->{POS}];
-            my $s_chrom; 
-            if (%contigs){
-                if (not exists $contigs{$chrom}){
-                    carp "WARNING: Contig '$chrom' is not present in user ".
-                         "provided contig order ";
-                    #put unexpected contigs to end of VCF
-                    $contigs{$chrom} = scalar keys %contigs;
-                }
-                $s_chrom = pack("N", $contigs{$chrom}); 
-            }else{
-                $s_chrom = sprintf("%-25s", $chrom); 
-                if (not @dict){
-                    $temp_dict{$chrom} = undef;
-                }
+            my ($l, $c) = _lineToVcfSort($line);
+            push @sort, $l;
+            if (not @dict){
+                $temp_dict{$c} = undef;
             }
-            my $p_pos = pack("N", $pos); 
-            push @sort, "$s_chrom$p_pos$line";
         }
         close $FH;
         if (not @dict){
             @dict = map {"##contig=<ID=$_>"} sort byContigs keys %temp_dict ;
         }
-        @head = _replaceHeaderContigs(\@head, \@dict) unless $do_not_replace_header;
+        my @out_head = _replaceHeaderContigs(\$head, \@dict) unless $do_not_replace_header;
         print STDERR "Performing sort...\n";
 
         if (%contigs){
@@ -2779,7 +2822,7 @@ sub sortVcf{
         }
         print STDERR "Printing output...";
         
-        print $SORTOUT join("\n", @head) ."\n";
+        print $SORTOUT join("\n", @out_head) ."\n";
         print $SORTOUT "$column_header\n";
         foreach my $s (@sort){
             my $var = '';
@@ -2811,31 +2854,20 @@ sub sortVcf{
         }
         my $sortex = Sort::External->new(%sortex_args);
         my @feeds = ();
+        my ($l, $c) = _lineToVcfSort($first, \%contigs);
+        push @feeds, $l;
+        if (not @dict){
+            $temp_dict{$c} = undef;
+        }
         my $n = 0;
-        my $FH = _openFileHandle($args{vcf});
         while (my $line = <$FH>){
             next if ($line =~ /^#/);
             $n++;
-            my @split = split("\t", $line, 3);
-            my $chrom = $split[VCF_FIELDS->{CHROM}];
-            my $pos = $split[VCF_FIELDS->{POS}];
-            my $s_chrom; 
-            if (%contigs){
-                if (not exists $contigs{$chrom}){
-                    carp "WARNING: Contig '$chrom' is not present in user ".
-                         "provided contig order\n";
-                    #put unexpected contigs to end of VCF
-                    $contigs{$chrom} = scalar keys %contigs; 
-                }
-                $s_chrom = pack("N", $contigs{$chrom}); 
-            }else{
-                $s_chrom = sprintf("%-25s", $chrom); 
-                if (not @dict){
-                    $temp_dict{$chrom} = undef;
-                }
+            my ($l, $c) = _lineToVcfSort($line, \%contigs);
+            push @feeds, $l;
+            if (not @dict){
+                $temp_dict{$c} = undef;
             }
-            my $p_pos = pack("N", $pos); 
-            push @feeds, "$s_chrom$p_pos$line";
             if (@feeds > 49999){
                 $sortex->feed(@feeds);
                 @feeds = ();
@@ -2852,8 +2884,8 @@ sub sortVcf{
         print STDERR "Finishing sort and writing output...\n";
         $sortex->finish; 
         $n = 0;
-        @head = _replaceHeaderContigs(\@head, \@dict) unless $do_not_replace_header;
-        print $SORTOUT join("\n", @head) ."\n";
+        my @out_head = _replaceHeaderContigs($head, \@dict) unless $do_not_replace_header;
+        print $SORTOUT join("\n", @out_head) ."\n";
         print $SORTOUT "$column_header\n";
         while ( defined( $_ = $sortex->fetch ) ) {
             my $var = '';
@@ -2875,6 +2907,29 @@ sub sortVcf{
     }
     print STDERR "\nDone.\n";
     return $args{output} if defined wantarray
+}
+
+
+sub _lineToVcfSort{
+    my $line = shift;
+    my $contigs = shift;
+    my @split = split("\t", $line, 3);
+    my $chrom = $split[VCF_FIELDS->{CHROM}];
+    my $pos = $split[VCF_FIELDS->{POS}];
+    my $s_chrom; 
+    if (%$contigs){
+        if (not exists $contigs->{$chrom}){
+            carp "WARNING: Contig '$chrom' is not present in user ".
+                 "provided contig order ";
+            #put unexpected contigs to end of VCF
+            $contigs->{$chrom} = scalar keys %{$contigs};
+        }
+        $s_chrom = pack("N", $contigs->{$chrom}); 
+    }else{
+        $s_chrom = sprintf("%-25s", $chrom); 
+    }
+    my $p_pos = pack("N", $pos); 
+    return ("$s_chrom$p_pos$line", $chrom);
 }
 
 sub _replaceHeaderContigs{
