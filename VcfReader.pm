@@ -2808,7 +2808,7 @@ sub sortVcf{
         if ($do_not_replace_header){
             @out_head = @$head;
         }else{
-            @out_head = _replaceHeaderContigs(\$head, \@dict) ;
+            @out_head = _replaceHeaderContigs($head, \@dict) ;
         }
         print STDERR "Performing sort...\n";
 
@@ -2891,7 +2891,7 @@ sub sortVcf{
         if ($do_not_replace_header){
             @out_head = @$head;
         }else{
-            @out_head = _replaceHeaderContigs(\$head, \@dict) ;
+            @out_head = _replaceHeaderContigs($head, \@dict) ;
         }
         print $SORTOUT join("\n", @out_head) ."\n";
         while ( defined( $_ = $sortex->fetch ) ) {
