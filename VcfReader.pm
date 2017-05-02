@@ -2772,7 +2772,6 @@ sub sortVcf{
         }
     }
 
-    my $column_header = $head->[-1];
     my $SORTOUT;
     if (exists $args{output}){
         if (openhandle($args{output})){
@@ -2789,7 +2788,7 @@ sub sortVcf{
         print STDERR "Reading variants into memory...\n";
         my @sort = ();
         my ($l, $c) = _lineToVcfSort($first, \%contigs);
-        push @sort, $l;
+        push @sort, "$l\n";#chomped, but not chomping other lines
         if (not @dict){
             $temp_dict{$c} = undef;
         }
@@ -2805,7 +2804,12 @@ sub sortVcf{
         if (not @dict){
             @dict = map {"##contig=<ID=$_>"} sort byContigs keys %temp_dict ;
         }
-        my @out_head = _replaceHeaderContigs(\$head, \@dict) unless $do_not_replace_header;
+        my @out_head = ();
+        if ($do_not_replace_header){
+            @out_head = @$head;
+        }else{
+            @out_head = _replaceHeaderContigs(\$head, \@dict) ;
+        }
         print STDERR "Performing sort...\n";
 
         if (%contigs){
@@ -2823,7 +2827,6 @@ sub sortVcf{
         print STDERR "Printing output...";
         
         print $SORTOUT join("\n", @out_head) ."\n";
-        print $SORTOUT "$column_header\n";
         foreach my $s (@sort){
             my $var = '';
             if (%contigs){
@@ -2855,11 +2858,11 @@ sub sortVcf{
         my $sortex = Sort::External->new(%sortex_args);
         my @feeds = ();
         my ($l, $c) = _lineToVcfSort($first, \%contigs);
-        push @feeds, $l;
+        push @feeds, "$l\n";#chomped, but not chomping other lines
         if (not @dict){
             $temp_dict{$c} = undef;
         }
-        my $n = 0;
+        my $n = 1;
         while (my $line = <$FH>){
             next if ($line =~ /^#/);
             $n++;
@@ -2884,9 +2887,13 @@ sub sortVcf{
         print STDERR "Finishing sort and writing output...\n";
         $sortex->finish; 
         $n = 0;
-        my @out_head = _replaceHeaderContigs($head, \@dict) unless $do_not_replace_header;
+        my @out_head = ();
+        if ($do_not_replace_header){
+            @out_head = @$head;
+        }else{
+            @out_head = _replaceHeaderContigs(\$head, \@dict) ;
+        }
         print $SORTOUT join("\n", @out_head) ."\n";
-        print $SORTOUT "$column_header\n";
         while ( defined( $_ = $sortex->fetch ) ) {
             my $var = '';
             if (%contigs){
