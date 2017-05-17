@@ -2924,7 +2924,7 @@ sub _lineToVcfSort{
     my $chrom = $split[VCF_FIELDS->{CHROM}];
     my $pos = $split[VCF_FIELDS->{POS}];
     my $s_chrom; 
-    if (%$contigs){
+    if ($contigs and %$contigs){
         if (not exists $contigs->{$chrom}){
             carp "WARNING: Contig '$chrom' is not present in user ".
                  "provided contig order ";
@@ -2957,7 +2957,7 @@ sub _replaceHeaderContigs{
         }
     }
     if (not $replaced){
-        push @new_head, @$dict;
+        splice(@new_head, -1, 0, @$dict)
     }
     return @new_head;
 }
