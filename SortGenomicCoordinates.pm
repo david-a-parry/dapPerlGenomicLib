@@ -230,7 +230,7 @@ sub locate {
       if not $self->{_merged};
     set_chrom( $self, $args{chrom} ) if $args{chrom};
     croak "You must set a chromosome to search for" if not $self->{_chrom};
-    $self->{_chrom} =~ s/^chr//i;
+    #$self->{_chrom} =~ s/^chr//i;
     set_position( $self, $args{position} ) if $args{position};
     croak "You must set a position to search for"
       if not defined $self->{_position};
