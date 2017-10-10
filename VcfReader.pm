@@ -3336,6 +3336,10 @@ Start coordinate of region to search. Required.
 
 End coordinate of region to search. Required.
 
+=item iter
+
+Return a tabixIterator for the given query rather than an array of hits.
+
 =back 
 
 
@@ -3372,7 +3376,10 @@ sub searchByRegionCompressed{
         }
         $tabixIterator = Bio::DB::HTS::Tabix->new(filename =>  $args{vcf}) ;
     }
-    my $iter = $tabixIterator->query("$args{chrom}:$args{start}-$args{end}");
+    my $iter = $tabixIterator->query_full($args{chrom}, $args{start}, $args{end});
+    if ($args{iter}){
+        return $iter;
+    }
     my @matches = ();
     while (my $m =  $iter->next() ){ 
         push @matches, $m;
@@ -3656,7 +3663,7 @@ sub searchForPositionCompressed{
         }
         $tabixIterator = Bio::DB::HTS::Tabix->new(filename =>  $args{vcf}) ;
     }
-    my $iter = $tabixIterator->query("$args{chrom}:$args{pos}-$args{pos}");
+    my $iter = $tabixIterator->query_full($args{chrom}, $args{pos}, $args{pos});
     my @matches = ();
     while (my $m =  $iter->next()){
         push @matches, $m;
