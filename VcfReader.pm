@@ -1887,12 +1887,14 @@ sub getSampleActualGenotypes{
     my %multiple = ();
     my $genotype;
     my @sample_alleles = ();
-    my $var;
     if ($args{all}){
         if (defined $args{sample_to_columns}){
             foreach my $sample (keys %{$args{sample_to_columns}}){
-                $var = getSampleVariant($args{line}, $args{sample_to_columns}->{$sample});
-                my $call = (split ":", $var)[0];
+                my $call = _getGenotype
+                (   $args{line}, 
+                    $args{sample_to_columns}->{$sample},
+                    $args{minGQ}
+                );
                 if ($call =~ /(\d+)([\/\|])(\d+)/){
                     if ($args{return_alleles_only}){
                         push (@sample_alleles, ($alleles[$1], $alleles[$3]));
@@ -1907,8 +1909,11 @@ sub getSampleActualGenotypes{
             }
         }else{
             foreach my $col (9..$#{$args{line}}){
-                $var = getSampleVariant($args{line}, $col);
-                my $call = (split ":", $var)[0];
+                my $call = _getGenotype
+                (   $args{line}, 
+                    $col,
+                    $args{minGQ}
+                );
                 if ($call =~ /(\d+)([\/\|])(\d+)/){
                     if ($args{return_alleles_only}){
                         push (@sample_alleles, ($alleles[$1], $alleles[$3]));
@@ -1933,8 +1938,11 @@ sub getSampleActualGenotypes{
         croak "multiple argument must be an array reference " if ref $args{multiple} ne 'ARRAY';
         if (defined $args{sample_to_columns}){
             foreach my $sample (@{$args{multiple}}){
-                $var = getSampleVariant($args{line}, $args{sample_to_columns}->{$sample});
-                my $call = (split ":", $var)[0];
+                my $call = _getGenotype
+                (   $args{line}, 
+                    $args{sample_to_columns}->{$sample},
+                    $args{minGQ}
+                );
                 if ($call =~ /(\d+)([\/\|])(\d+)/){
                     if ($args{return_alleles_only}){
                         push (@sample_alleles, ($alleles[$1], $alleles[$3]));
@@ -1949,8 +1957,11 @@ sub getSampleActualGenotypes{
             }
         }else{
             foreach my $col (@{$args{multiple}}){
-                $var = getSampleVariant($args{line}, $col);
-                my $call = (split ":", $var)[0];
+                my $call = _getGenotype
+                (   $args{line}, 
+                    $col,
+                    $args{minGQ}
+                );
                 if ($call =~ /(\d+)([\/\|])(\d+)/){
                     if ($args{return_alleles_only}){
                         push (@sample_alleles, ($alleles[$1], $alleles[$3]));
@@ -1982,8 +1993,11 @@ sub getSampleActualGenotypes{
         }elsif ($args{column}){
             $col = $args{column};
         }
-        $var = getSampleVariant($args{line}, $col);
-        my $call = (split ":", $var)[0];
+        my $call = _getGenotype
+        (   $args{line}, 
+            $col,
+            $args{minGQ}
+        );
         if ($call =~ /(\d+)([\/\|])(\d+)/){
             if ($args{return_alleles_only}){
                 push (@sample_alleles, ($alleles[$1], $alleles[$3]));
