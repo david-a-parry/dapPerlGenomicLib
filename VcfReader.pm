@@ -608,39 +608,15 @@ Returns a hash of contig IDs to their relative order in the VCF (i.e. the first 
 
 This function will first attempt to read the contig IDs from a VCF header and failing that it will attempt to read the contig IDs from a VCF file's index. If the index does not exist it will try to create one either using tabix (if input is bgzip compressed) or using VcfReader's own indexing method (if the input is not compressed).
 
-Arguments
-
-=over 16
-
-=item vcf
-
-File name of VCF file. This argument or 'header' argument is required.
-
-=item header
-
-Header string or an array of header lines in the same order they appear in a file. Ignored if using 'vcf' argument.
-
-=back 
-
-
- my %contigs = VcfReader::getContigOrder(file => "file.vcf");
+ my %contigs = VcfReader::getContigOrder("file.vcf");
 
 =cut
 sub getContigOrder{
-    my %args = @_;
-    croak "getContigOrder method requires file or header argument" 
-        if not $args{vcf} and not $args{header};
+    my $vcf = shift;
+    croak "getContigOrder method requires one argument (VCF file)" if not $vcf;
     my %contigs = ();
     my @header  = ();
-    if ($args{vcf}){
-        @header = getMetaHeader($args{vcf});
-    }elsif($args{header}){
-        if (ref $args{header} eq 'ARRAY'){
-            @header = @{$args{header}};
-        }else{
-            @header = split("\n", $args{header});
-        }
-    }
+    @header = getMetaHeader($vcf);
     my @con = grep {/##contig=</} @header;
     if (@con){
         my $n = 0;
@@ -653,26 +629,22 @@ sub getContigOrder{
         }
         return %contigs if %contigs;
     }
-    if (not $args{vcf}){
-        carp "Failed to retrieve could not retrieve contigs from header.\n";
-        return;
-    }
     print STDERR "Failed to retrieve contigs from header - reading/creating index.\n";
-    if ($args{vcf} =~ /\.(b){0,1}gz$/){
+    if ($vcf =~ /\.(b){0,1}gz$/){
         eval "use Bio::DB::HTS::Tabix; 1" 
-            or croak "Bio::DB::HTS::Tabix module is not installed and VCF file $args{vcf} appears to be (b)gzip compressed.  ".
+            or croak "Bio::DB::HTS::Tabix module is not installed and VCF file $vcf appears to be (b)gzip compressed.  ".
             "  Please install Bio::DB::HTS::Tabix in order to quickly extract contigs from bgzip compressed VCFs.\n";
-        my $index = "$args{vcf}.tbi";
+        my $index = "$vcf.tbi";
         if (not -e $index){
-            print STDERR "Indexing $args{vcf} with tabix...\n";
-            indexVcf($args{vcf});
+            print STDERR "Indexing $vcf with tabix...\n";
+            indexVcf($vcf);
             croak "Tabix indexing failed? $index does not exist " if (not -e $index);
         }
-        my $t = getTabixIterator($args{vcf});
+        my $t = getTabixIterator($vcf);
         my $n = 0;
         %contigs = map {$_ => $n++} @{$t->seqnames()};
     }else{
-        my %idx = readIndex($args{vcf});
+        my %idx = readIndex($vcf);
         foreach my $k (keys %idx){
             if (ref $idx{$k} eq 'HASH' && exists $idx{$k}->{order}){
                 $contigs{$k} = $idx{$k}->{order};
