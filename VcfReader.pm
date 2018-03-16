@@ -3395,8 +3395,10 @@ sub searchByRegionCompressed{
         return $iter;
     }
     my @matches = ();
-    while (my $m =  $iter->next() ){ 
-        push @matches, $m;
+    if (defined $iter){
+        while (my $m =  $iter->next() ){ 
+            push @matches, $m;
+        } 
     } 
     return @matches if defined wantarray;
     carp "searchByRegionCompressed called in void context ";     
@@ -3679,8 +3681,10 @@ sub searchForPositionCompressed{
     }
     my $iter = $tabixIterator->query_full($args{chrom}, $args{pos}, $args{pos});
     my @matches = ();
-    while (my $m =  $iter->next()){
-        push @matches, $m;
+    if (defined $iter){
+        while (my $m =  $iter->next()){
+            push @matches, $m;
+        } 
     } 
     return @matches if defined wantarray;
     carp "searchForPositionCompressed called in void context ";     
