@@ -18,9 +18,9 @@ our $AUTOLOAD;
 {
         my $_count = 0;
         my %_attrs = (
-        _server         => ["https://rest.ensembl.org", "read/write"],
-        _default_server => ["https://rest.ensembl.org", "read"],
-        _grch37_server  => ["https://grch37.rest.ensembl.org", "read"],
+        _server         => ["http://rest.ensembl.org", "read/write"],
+        _default_server => ["http://rest.ensembl.org", "read"],
+        _grch37_server  => ["http://grch37.rest.ensembl.org", "read"],
         );
         sub _all_attrs{
                 keys %_attrs;
